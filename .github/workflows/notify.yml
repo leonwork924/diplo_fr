@@ -12,6 +12,10 @@ on:
         description: "Dry-run (n'envoie aucun email, affiche seulement)"
         type: boolean
         default: false
+      days_back:
+        description: "Nombre de jours en arrière à chercher (mets 60 pour un premier test, avant de revenir à une petite valeur en usage normal)"
+        type: string
+        default: "8"
 
 permissions:
   contents: write
@@ -47,7 +51,7 @@ jobs:
           BREVO_SENDER_EMAIL: ${{ secrets.BREVO_SENDER_EMAIL }}
         run: |
           cd src
-          python3 main.py ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
+          python3 main.py --days-back ${{ github.event.inputs.days_back || '8' }} ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
 
       - name: Commit et push la mémoire mise à jour
         run: |

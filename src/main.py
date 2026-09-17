@@ -82,9 +82,10 @@ def main() -> None:
         sent_count += 1
         seen.add(jorf_id)
 
-    save_seen(seen)
+    if not args.dry_run:
+        save_seen(seen)
     print(f"\n{new_count} nouvelle(s) nomination(s), {sent_count} notification(s) "
-          f"{'(dry-run, rien envoyé)' if args.dry_run else 'envoyée(s)'}.")
+          f"{'(dry-run, rien envoyé, mémoire non modifiée)' if args.dry_run else 'envoyée(s)'}.")
 
 
 if __name__ == "__main__":

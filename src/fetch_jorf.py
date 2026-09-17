@@ -2,19 +2,13 @@
 fetch_jorf.py — Interroge JusticeLibre (search_jorf) en dehors de Claude,
 depuis un script Python autonome (GitHub Actions).
 
-⚠️ POINT NON VÉRIFIÉ EN CONDITIONS RÉELLES : dans la conversation où ce
-projet a été conçu, `search_jorf` a été appelé directement comme outil
-Claude (résultats confirmés, voir fixtures/justicelibre_samples.json) --
-mais CE fichier, qui parle le protocole MCP en HTTP brut pour un usage hors
-Claude, n'a jamais pu être testé en direct : justicelibre.org n'est pas
-joignable depuis le bac à sable où il a été écrit (pas d'accès réseau vers
-ce domaine). L'API du client (`mcp.client.streamable_http.streamable_http_client`,
-`mcp.ClientSession.call_tool`) est confirmée réelle -- installée et
-inspectée avec `pip install mcp` -- donc ce n'est pas une invention, mais le
-premier run réel (`python fetch_jorf.py` en local, ou le premier passage du
-workflow) est le vrai test. Si ça échoue, regarder en premier : le nom exact
-du tool ("search_jorf" vs un préfixe), et si l'endpoint exige une étape
-d'authentification malgré "sans clé" annoncé sur leur README.
+⚠️ Statut : le premier run réel (GitHub Actions, 17/09/2026) a confirmé un
+bug dans la connexion -- `streamable_http_client` ne renvoie que 2 valeurs
+(read, write), pas 3 comme le code le supposait sans avoir pu le tester en
+direct depuis le bac à sable où il a été écrit. Corrigé. Ce que ça valide :
+la connexion s'établit. Ce qui reste à confirmer par le prochain run : que
+`session.initialize()` et `call_tool("search_jorf", ...)` renvoient bien des
+résultats exploitables -- le code n'avait pas encore atteint ce point.
 """
 
 from __future__ import annotations
@@ -29,7 +23,7 @@ MCP_URL = "https://justicelibre.org/mcp"
 
 
 async def _search_jorf_async(query: str, nature: str, date_min: str, limit: int = 50) -> list[dict]:
-    async with streamable_http_client(MCP_URL) as (read, write, _):
+    async with streamable_http_client(MCP_URL) as (read, write):
         async with ClientSession(read, write) as session:
             await session.initialize()
             result = await session.call_tool(

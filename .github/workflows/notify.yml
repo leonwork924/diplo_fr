@@ -1,0 +1,68 @@
+name: diplo_fr - notification quotidienne
+
+on:
+  schedule:
+    # Les nominations passent en Conseil des ministres, en général le
+    # mercredi. Vérifie tous les jours en semaine pour ne pas dépendre d'un
+    # calendrier fixe (le Conseil peut être décalé).
+    - cron: "0 7 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry-run (n'envoie aucun email, affiche seulement)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Vérifie l'extraction contre les fixtures avant tout run réel
+        run: |
+          cd src
+          python3 -c "
+          import json
+          from extract import extract_nomination
+          samples = json.load(open('../fixtures/justicelibre_samples.json', encoding='utf-8'))
+          ok = sum(1 for s in samples if extract_nomination(s['id'], s['extract']))
+          print(f'{ok}/{len(samples)} extraits correctement reconnus')
+          assert ok >= 9, 'régression détectée dans extract.py'
+          "
+
+      - name: Run
+        env:
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+          BREVO_SENDER_EMAIL: ${{ secrets.BREVO_SENDER_EMAIL }}
+        run: |
+          cd src
+          python3 main.py ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
+
+      - name: Commit et push la mémoire mise à jour
+        run: |
+          git config user.name "diplo-fr-bot"
+          git config user.email "diplo-fr-bot@users.noreply.github.com"
+          git add data/seen.json
+          if git diff --staged --quiet; then
+            echo "Rien de nouveau."
+            exit 0
+          fi
+          git commit -m "Update seen.json"
+          for attempt in 1 2 3; do
+            if git push; then exit 0; fi
+            git fetch origin main
+            git rebase origin/main -X ours
+            sleep 5
+          done
+          exit 1

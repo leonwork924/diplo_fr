@@ -16,6 +16,7 @@ Trois catégories reconnues, chacune avec son motif de localisation propre :
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass
 
 # --- Nom : prénom(s) + particule optionnelle (du/de/de la) + NOM DE FAMILLE
@@ -131,6 +132,12 @@ def extract_nomination(jorf_id: str, extract: str) -> Nomination | None:
     dispatch compte : "attaché de défense" et "consul général" avant
     "ambassadeur" (générique), pour ne pas prendre le mauvais motif de
     localisation sur un texte qui contient les deux mots incidemment."""
+    # Normalisation Unicode NFC : le flux réel (via l'API HTTP, hors Claude)
+    # peut encoder les accents différemment de ce que ce fichier source
+    # contient littéralement (NFD -- accent en caractère combinant séparé --
+    # vs NFC -- caractère accentué précomposé). Deux "é" qui s'affichent
+    # identiquement peuvent ne PAS matcher un motif regex sans ça.
+    extract = unicodedata.normalize("NFC", extract)
     for pattern, fn in CATEGORY_DISPATCH:
         if pattern.search(extract):
             result = fn(jorf_id, extract)

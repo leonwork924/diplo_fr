@@ -66,6 +66,7 @@ def main() -> None:
         nomination = extract_nomination(jorf_id, texte.get("extract", ""))
         if not nomination:
             print(f"  [SAUTÉ] {jorf_id} : extraction impossible (extrait insuffisant ou motif non reconnu)")
+            print(f"          extrait brut : {texte.get('extract', '')!r}")
             seen.add(jorf_id)  # évite de retenter indéfiniment sur un texte qui ne s'extrait pas
             continue
 

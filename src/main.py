@@ -105,6 +105,10 @@ def main() -> None:
                          help="Si fourni, TOUS les emails partent à cette adresse au lieu des vrais destinataires.")
     parser.add_argument("--limit", type=int, default=None,
                          help="Traite au maximum N notifications au total (nominations + départs + estimation 4 ans).")
+    parser.add_argument("--backfill", action="store_true",
+                         help="Peuple active_postings.json depuis l'historique (utiliser avec --days-back "
+                              "élevé, ex. 1500 pour ~4 ans) SANS envoyer aucun email -- juste pour que "
+                              "l'estimation à 4 ans ait des données dès maintenant plutôt qu'en 2030.")
     args = parser.parse_args()
 
     date_min = (date.today() - timedelta(days=args.days_back)).isoformat()
@@ -132,7 +136,10 @@ def main() -> None:
             seen.add(jorf_id)
             continue
 
-        dispatch(nomination, args=args, budget=budget)
+        if args.backfill:
+            print(f"  [backfill] {nomination.name} [{nomination.event}] {nomination.location}")
+        else:
+            dispatch(nomination, args=args, budget=budget)
         seen.add(jorf_id)
 
         if nomination.event == "arrivee":
@@ -146,14 +153,22 @@ def main() -> None:
         # Consul général : le prédécesseur mentionné = un départ dérivé, même lieu.
         if nomination.category == "consul_general" and nomination.predecessor:
             synth_id = f"{jorf_id}-predecessor"
-            if synth_id not in seen and budget.available():
+            if synth_id not in seen and (args.backfill or budget.available()):
                 predecessor_event = replace(
                     nomination, name=nomination.predecessor, event="depart",
                     predecessor=None, effective_date=None,
                 )
-                dispatch(predecessor_event, args=args, budget=budget)
+                if not args.backfill:
+                    dispatch(predecessor_event, args=args, budget=budget)
                 seen.add(synth_id)
                 remove_posting(postings, nomination.predecessor)
+
+    if args.backfill:
+        print(f"\n[backfill] {new_count} nomination(s) historique(s) intégrée(s) à active_postings.json, "
+              f"aucun email envoyé.")
+        save_seen(seen)
+        save_postings(postings)
+        return
 
     # Estimation à 4 ans : postes actifs sans départ confirmé depuis longtemps.
     for p in due_for_4y_check(postings):

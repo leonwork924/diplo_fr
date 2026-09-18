@@ -16,6 +16,14 @@ on:
         description: "Nombre de jours en arrière à chercher (mets 60 pour un premier test, avant de revenir à une petite valeur en usage normal)"
         type: string
         default: "8"
+      test_recipient:
+        description: "Si rempli, TOUS les emails partent à cette adresse au lieu des vrais destinataires (test réel sans déranger les filiales)"
+        type: string
+        default: ""
+      limit:
+        description: "Limite le nombre de nominations traitées (vide = pas de limite). Utile pour un tout premier envoi réel, ex. 2"
+        type: string
+        default: ""
 
 permissions:
   contents: write
@@ -51,7 +59,12 @@ jobs:
           BREVO_SENDER_EMAIL: ${{ secrets.BREVO_SENDER_EMAIL }}
         run: |
           cd src
-          python3 main.py --days-back ${{ github.event.inputs.days_back || '8' }} ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }} 2>&1 | tee ../data/last_run.log
+          python3 main.py \
+            --days-back ${{ github.event.inputs.days_back || '8' }} \
+            ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }} \
+            ${{ github.event.inputs.test_recipient != '' && format('--test-recipient {0}', github.event.inputs.test_recipient) || '' }} \
+            ${{ github.event.inputs.limit != '' && format('--limit {0}', github.event.inputs.limit) || '' }} \
+            2>&1 | tee ../data/last_run.log
 
       - name: Commit et push la mémoire mise à jour
         run: |

@@ -48,6 +48,11 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--days-back", type=int, default=8)
     parser.add_argument("--dry-run", action="store_true", help="N'envoie aucun email, affiche seulement.")
+    parser.add_argument("--test-recipient", default=None,
+                         help="Si fourni, TOUS les emails partent à cette adresse au lieu des vrais destinataires -- "
+                              "pour tester un envoi réel sans déranger les filiales.")
+    parser.add_argument("--limit", type=int, default=None,
+                         help="Traite au maximum N nominations (utile pour un tout premier test réel, ex. --limit 2).")
     args = parser.parse_args()
 
     date_min = (date.today() - timedelta(days=args.days_back)).isoformat()
@@ -58,6 +63,9 @@ def main() -> None:
 
     new_count, sent_count = 0, 0
     for texte in raw_textes:
+        if args.limit and sent_count >= args.limit:
+            print(f"  (--limit {args.limit} atteint, arrêt anticipé)")
+            break
         jorf_id = texte["id"]
         if jorf_id in seen:
             continue
@@ -75,8 +83,13 @@ def main() -> None:
         if not recipients:
             recipients = ROUTING.get("France")  # repli Sophie/Dorina
 
+        real_recipients = recipients
+        if args.test_recipient:
+            recipients = [args.test_recipient]
+
         email = build_email(nomination, branch_key)
-        print(f"  {nomination.name} -> {branch_key or '(non résolu, repli Sophie/Dorina)'} -> {recipients}")
+        print(f"  {nomination.name} -> {branch_key or '(non résolu, repli Sophie/Dorina)'} -> "
+              f"{real_recipients}" + (f"  [redirigé vers {args.test_recipient} pour ce test]" if args.test_recipient else ""))
 
         if not args.dry_run:
             send_email(recipients, email["subject"], email["body"])

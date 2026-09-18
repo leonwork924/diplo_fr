@@ -110,7 +110,8 @@ _ISO_TO_ROUTING_KEY = {
 
 # --- Villes : exonymes français courants -> nom anglais/local reconnu par geonamescache ---
 _FRENCH_CITY_EXONYMS = {
-    "alger": "algiers", "kiev": "kyiv", "le caire": "cairo", "moscou": "moscow",
+    "alger": "algiers", "kiev": "kyiv", "le caire": "cairo", "caire": "cairo",
+    "moscou": "moscow",
     "pékin": "beijing", "vienne": "vienna", "varsovie": "warsaw", "prague": "prague",
     "bruxelles": "brussels", "la haye": "the hague", "athènes": "athens",
     "lisbonne": "lisbon", "florence": "florence", "gênes": "genoa", "venise": "venice",

@@ -89,12 +89,16 @@ def extract_ambassadeur(jorf_id: str, extract: str) -> Nomination | None:
 
 def extract_consul_general(jorf_id: str, extract: str) -> Nomination | None:
     name_m = NAME_RE.search(extract)
-    loc_m = re.search(r"consul général de France à\s+([^,\.]+)", extract, re.IGNORECASE)
+    loc_m = re.search(
+        r"consul général de France (?:à|au)\s+([^,\.…]+?)(?:\s+à compter du|[,\.…]|$)",
+        extract, re.IGNORECASE,
+    )
     if not name_m or not loc_m:
         return None
     return Nomination(
         jorf_id, "consul_general", _clean_name(name_m),
         loc_m.group(1).strip(), predecessor=_predecessor(extract),
+        effective_date=_effective_date(extract),
     )
 
 
@@ -127,16 +131,23 @@ CATEGORY_DISPATCH = [
 ]
 
 
+HTML_TAG_RE = re.compile(r"<[^>]+>")
+
+
 def extract_nomination(jorf_id: str, extract: str) -> Nomination | None:
     """Route vers le bon extracteur selon les mots-clés présents. L'ordre du
     dispatch compte : "attaché de défense" et "consul général" avant
     "ambassadeur" (générique), pour ne pas prendre le mauvais motif de
     localisation sur un texte qui contient les deux mots incidemment."""
-    # Normalisation Unicode NFC : le flux réel (via l'API HTTP, hors Claude)
-    # peut encoder les accents différemment de ce que ce fichier source
-    # contient littéralement (NFD -- accent en caractère combinant séparé --
-    # vs NFC -- caractère accentué précomposé). Deux "é" qui s'affichent
-    # identiquement peuvent ne PAS matcher un motif regex sans ça.
+    # JusticeLibre entoure les termes de la requête de balises <em>...</em>
+    # (surlignage) -- confirmé sur un vrai run (17/09/2026) où ça cassait
+    # 100% des extractions "consul général" (la requête contient "nommé",
+    # "consul" ET "général", donc les trois se retrouvent scindés par des
+    # balises). Les retirer avant tout le reste du traitement.
+    extract = HTML_TAG_RE.sub("", extract)
+    # Normalisation Unicode NFC : conservée par précaution (accents encodés
+    # différemment entre deux sources), même si ce n'était pas la vraie
+    # cause du bug ci-dessus.
     extract = unicodedata.normalize("NFC", extract)
     for pattern, fn in CATEGORY_DISPATCH:
         if pattern.search(extract):

@@ -50,6 +50,7 @@ def search_jorf(query: str, nature: str = "DECRET", date_min: str = "", limit: i
 
 QUERIES = [
     ("ambassadeur", "ambassadeur extraordinaire plénipotentiaire"),
+    ("ambassadeur_cessation", "mis fin fonctions ambassadeur République française auprès"),
     ("consul_general", "consul général nommé République française"),
     ("attache_defense", "attaché défense nommé ambassade"),
 ]

@@ -74,6 +74,7 @@ class Nomination:
     category: str  # "ambassadeur" | "consul_general" | "attache_defense"
     name: str
     location: str  # phrase pays (ambassadeur) ou ville (consul/attaché)
+    event: str = "arrivee"  # "arrivee" (nomination) | "depart" (fin de fonction)
     predecessor: str | None = None
     effective_date: str | None = None
 
@@ -85,6 +86,27 @@ def extract_ambassadeur(jorf_id: str, extract: str) -> Nomination | None:
         return None
     location = loc_m.group(1).strip().rstrip(".,")
     return Nomination(jorf_id, "ambassadeur", _clean_name(name_m), location)
+
+
+# "Il est mis fin aux fonctions d'ambassadeur extraordinaire et plénipotentiaire
+# de la République française auprès [...] exercées par M./Mme X" -- motif
+# confirmé sur deux vrais textes (JORFTEXT000053981881, JORFTEXT000053459315).
+CESSATION_NAME_RE = re.compile(
+    r"exercées par\s+(?:M\.|Mme)\s+"
+    r"((?:[A-ZÀ-Ý][\wÀ-ÿ'’.-]*\s+){1,3}(?:d[eu]'?\s+|de\s+la\s+)?[A-ZÀ-Ý][A-ZÀ-Ÿ'’-]+(?:\s+[A-ZÀ-Ý][A-ZÀ-Ÿ'’-]+)?)"
+)
+
+
+def extract_ambassadeur_cessation(jorf_id: str, extract: str) -> Nomination | None:
+    name_m = CESSATION_NAME_RE.search(extract)
+    loc_m = re.search(
+        r"de la République française\s+(.+?)(?:\s+exercées par|\.\s|\.$|$)", extract
+    )
+    if not name_m or not loc_m:
+        return None
+    location = loc_m.group(1).strip().rstrip(".,")
+    name = re.sub(r"\s+", " ", name_m.group(1).strip())
+    return Nomination(jorf_id, "ambassadeur", name, location, event="depart")
 
 
 def extract_consul_general(jorf_id: str, extract: str) -> Nomination | None:
@@ -127,6 +149,9 @@ def extract_attache_defense(jorf_id: str, extract: str) -> Nomination | None:
 CATEGORY_DISPATCH = [
     (re.compile(r"attaché de défense", re.IGNORECASE), extract_attache_defense),
     (re.compile(r"consul général", re.IGNORECASE), extract_consul_general),
+    # Cessation avant nomination générique : un texte de cessation contient
+    # aussi le mot "ambassadeur", donc il faut le motif le plus spécifique en premier.
+    (re.compile(r"mis fin aux fonctions.{0,80}ambassadeur", re.IGNORECASE | re.DOTALL), extract_ambassadeur_cessation),
     (re.compile(r"ambassadeur", re.IGNORECASE), extract_ambassadeur),
 ]
 

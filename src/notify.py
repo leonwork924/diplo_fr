@@ -17,7 +17,7 @@ CATEGORY_LABELS = {
     "attache_defense": "Attaché(e) de défense",
 }
 
-GENERIC_TEMPLATE = """Madame, Monsieur,
+GENERIC_TEMPLATE_ARRIVEE = """Madame, Monsieur,
 
 Permettez-moi de vous adresser mes sincères félicitations à l'occasion de votre nomination.
 
@@ -31,14 +31,47 @@ d'échanger avec vous et de vous présenter les solutions que nos équipes peuve
 Bien cordialement,
 [Signature]"""
 
+GENERIC_TEMPLATE_DEPART = """Madame, Monsieur,
 
-def build_email(nomination: Nomination, branch_country: str | None) -> dict:
+Nous avons noté que votre mandat actuel touche à sa fin.
+
+En tant que [Titre] d'AGS [Filiale], j'accompagne les administrations, institutions et
+collaborateurs en mobilité dans la gestion de leurs transferts internationaux.
+
+Si votre prochaine affectation devait nécessiter un accompagnement pour votre
+déménagement, je serais ravi(e) d'échanger avec vous et de vous présenter les
+solutions que nos équipes peuvent mettre à votre disposition.
+
+Bien cordialement,
+[Signature]"""
+
+
+def build_email(nomination: Nomination, branch_country: str | None, note: str | None = None) -> dict:
     label = CATEGORY_LABELS.get(nomination.category, nomination.category)
-    subject = f"[Diplo FR] {label} — {nomination.name} — {nomination.location}"
 
-    lines = [
-        f"Nouvelle nomination repérée au Journal Officiel :",
-        "",
+    if nomination.event == "depart":
+        subject = f"[Diplo FR] Fin de mandat — {label} — {nomination.name} — {nomination.location}"
+        context_line = (
+            f"Fin de mandat repérée au Journal Officiel -- cette personne quitte "
+            f"prochainement {nomination.location} :"
+        )
+        pitch = (
+            "Cette personne est actuellement sur place et pourrait bientôt déménager "
+            "(retour en France ou nouvelle affectation) -- à vous de juger si un contact "
+            "local est pertinent avant son départ."
+        )
+    else:
+        subject = f"[Diplo FR] {label} — {nomination.name} — {nomination.location}"
+        context_line = "Nouvelle nomination repérée au Journal Officiel -- cette personne est actuellement en France :"
+        pitch = (
+            "Ce mouvement représente potentiellement un déménagement international au "
+            "départ de la France -- à vous de juger si un contact est pertinent."
+        )
+
+    lines = [context_line, ""]
+    if note:
+        lines += [f"⚠ {note}", ""]
+    lines += [
         f"  Personne : {nomination.name}",
         f"  Poste : {label}",
         f"  Lieu : {nomination.location}",
@@ -50,11 +83,10 @@ def build_email(nomination: Nomination, branch_country: str | None) -> dict:
     lines += [
         f"  Référence JORF : https://jorfsearch.steinertriples.ch/JORFTEXT{nomination.jorf_id.replace('JORFTEXT','')}",
         "",
-        "Ce mouvement représente potentiellement un déménagement international --",
-        "à vous de juger si un contact est pertinent selon le contexte.",
+        pitch,
         "",
         "--- Modèle de prise de contact (à adapter et personnaliser) ---",
         "",
-        GENERIC_TEMPLATE,
+        GENERIC_TEMPLATE_DEPART if nomination.event == "depart" else GENERIC_TEMPLATE_ARRIVEE,
     ]
     return {"subject": subject, "body": "\n".join(lines)}
